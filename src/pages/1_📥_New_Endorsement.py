@@ -86,7 +86,7 @@ if endorsement_file:
         st.success(f"✅ ENDORSEMENT FILE uploaded: {endorsement_file.name} (Sheet 2)")
 
 if tad_file:
-    df2 = read_file(tad_file, password=DEFAULT_PASSWORD, sheet_name="SPM Endo", header_row=3)
+    df2 = read_file(tad_file, password=DEFAULT_PASSWORD, sheet_name=0, header_row=3)
     if df2 is not None:
         st.session_state["tad_df"] = df2
         st.success(f"✅ TAD FILE uploaded: {tad_file.name} (Sheet 1, starts at A4)")
@@ -176,21 +176,14 @@ if st.button("🚀 Merge with ENDORSEMENT FILE"):
         tad_df = st.session_state["aligned_tad"]
         endorsement_df = st.session_state["endorsement_df"]
 
-        # --- Template headers (final output order) ---
-        TEMPLATE_HEADERS = [
-            "LAST BARCODE","DATE","PTP DATE","AGENT","CLASSIFICATION","ENDO DATE","DATE REFERRED",
-            "CTL2","CTL3","CTL4","DEBTOR ID","LAN","NAME","PAST DUE","PAYOFF AMOUNT","PRINCIPAL",
-            "MONTHLY AMORTIZATION","INTEREST","LPC","INSURANCE","PREPAYMENT","CU PAYMENT",
-            "LAST PAYMENT DATE","PREM AMT","PROD TYPE","LPC YTD","Rate","Repricing Date","DPD",
-            "LOAN MATURITY","DUE DATE","OLDEST DUE DATE","NEXT DUE DATE","ADA SHORTAGE","UNIT",
-            "EMAIL","ALTERNATIVE EMAIL ADDRESS","MOBILE_ALS","MOBILE_ALFES","PRIMARY_NO_ALS",
-            "BUS_NO_ALS","LANDLINE_NO_ALS","CO BORROWER","CO BORROWER MOBILE_ALFES",
-            "CO BORROWER LANDLINE__ALFES","CO BORROWER EMAIL"
-        ]
+        # Normalize key for consistency
+        tad_df["LAN"] = tad_df["LAN"].astype(str).str.strip()
+        endorsement_df.columns = endorsement_df.columns.str.upper().str.strip()
 
-        # --- Rename ACCTNUM -> LAN for merge consistency ---
         if "ACCTNUM" in endorsement_df.columns:
             endorsement_df = endorsement_df.rename(columns={"ACCTNUM": "LAN"})
+
+        endorsement_df["LAN"] = endorsement_df["LAN"].astype(str).str.strip()
 
         # --- Merge on LAN key ---
         merged_df = pd.merge(
@@ -201,13 +194,11 @@ if st.button("🚀 Merge with ENDORSEMENT FILE"):
             suffixes=("", "_ENDORSEMENT")
         )
 
-        # --- Map ENDORSEMENT fields to TEMPLATE headers ---
+        # --- Map ENDORSEMENT fields ---
         column_map = {
-            "CTL4": "CTL4",
             "MOAMORT_ALFES": "MONTHLY AMORTIZATION",
-            "Oldest_Due_date": "OLDEST DUE DATE",
-            "DPD": "DPD",
-            "short_description": "UNIT",
+            "OLDEST_DUE_DATE": "OLDEST DUE DATE",
+            "SHORT_DESCRIPTION": "UNIT",
             "EMAIL_ALS": "EMAIL",
             "EMAIL_ALFES": "ALTERNATIVE EMAIL ADDRESS",
             "MOBILE_NO_ALS": "MOBILE_ALS",
@@ -226,121 +217,93 @@ if st.button("🚀 Merge with ENDORSEMENT FILE"):
             if source_col in merged_df.columns:
                 merged_df[target_col] = merged_df[source_col]
 
-        # === Classification Logic Integration ===
+        # --- Classification Logic ---
         from datetime import datetime
-        today = datetime.today().strftime("%Y-%m-%d")
+        today = datetime.today().strftime("%m/%d/%Y")
 
         if "masterlist_df" in st.session_state:
             masterlist_df = st.session_state["masterlist_df"]
+            masterlist_df["LAN"] = masterlist_df["LAN"].astype(str).str.strip()
 
-            if "LAN" in masterlist_df.columns:
-                # --- Classification (NEW ENDO or REENDO) ---
-                merged_df["CLASSIFICATION"] = merged_df["LAN"].apply(
-                    lambda lan: "REENDO" if lan in masterlist_df["LAN"].values else "NEW ENDO"
-                )
+            merged_df["CLASSIFICATION"] = merged_df["LAN"].apply(
+                lambda lan: "REENDO" if lan in masterlist_df["LAN"].values else "NEW ENDO"
+            )
 
-                # --- DATE REFERRED Logic ---
-                def get_date_referred(row):
-                    if row["CLASSIFICATION"] == "NEW ENDO":
-                        return today
-                    else:
-                        prev_date = masterlist_df.loc[
-                            masterlist_df["LAN"] == row["LAN"], "DATE REFERRED"
-                        ]
-                        return prev_date.values[0] if not prev_date.empty else today
+            def get_date_referred(row):
+                if row["CLASSIFICATION"] == "NEW ENDO":
+                    return today
+                prev_date = masterlist_df.loc[
+                    masterlist_df["LAN"] == row["LAN"], "DATE REFERRED"
+                ]
+                return prev_date.values[0] if not prev_date.empty else today
 
-                merged_df["DATE REFERRED"] = merged_df.apply(get_date_referred, axis=1)
-
-            else:
-                st.warning("⚠️ Masterlist file missing 'LAN' column. Classification skipped.")
-                merged_df["CLASSIFICATION"] = "NEW ENDO"
-                merged_df["DATE REFERRED"] = today
-
+            merged_df["DATE REFERRED"] = merged_df.apply(get_date_referred, axis=1)
         else:
-            st.info("ℹ️ No masterlist uploaded. All accounts marked as NEW ENDO.")
             merged_df["CLASSIFICATION"] = "NEW ENDO"
             merged_df["DATE REFERRED"] = today
 
-        # --- ENDO DATE always today ---
         merged_df["ENDO DATE"] = today
 
+        # --- Compute DUE DATES ---
+        try:
+            merged_df["OLDEST DUE DATE"] = pd.to_datetime(merged_df["OLDEST DUE DATE"], errors="coerce")
+            merged_df["DUE DATE"] = merged_df["OLDEST DUE DATE"].dt.day
+            merged_df["NEXT DUE DATE"] = merged_df["OLDEST DUE DATE"] + DateOffset(months=1)
 
-        # --- Derived columns ---
-
-
-    try:
-        # 1️⃣ Parse OLDEST DUE DATE to datetime safely
-        merged_df["OLDEST DUE DATE"] = pd.to_datetime(
-            merged_df["OLDEST DUE DATE"], errors="coerce"
-        )
-
-        # 2️⃣ DUE DATE = DAY(OLDEST DUE DATE)
-        merged_df["DUE DATE"] = merged_df["OLDEST DUE DATE"].dt.day
-
-        # 3️⃣ NEXT DUE DATE = EDATE(OLDEST DUE DATE, 1)
-        merged_df["NEXT DUE DATE"] = merged_df["OLDEST DUE DATE"] + DateOffset(months=1)
-
-        # 4️⃣ Format all date-related columns to short date (mm/dd/yyyy)
-        date_columns = [
-            "OLDEST DUE DATE", "NEXT DUE DATE",
-            "DATE REFERRED", "ENDO DATE", "LAST PAYMENT DATE"
-        ]
-
-        for col in date_columns:
-            if col in merged_df.columns:
+            date_columns = ["OLDEST DUE DATE", "NEXT DUE DATE", "DATE REFERRED", "ENDO DATE", "LAST PAYMENT DATE"]
+            for col in date_columns:
                 merged_df[col] = pd.to_datetime(merged_df[col], errors="coerce").dt.strftime("%m/%d/%Y")
 
-        # 5️⃣ Ensure DUE DATE is integer only (no decimals, no NaN)
-        merged_df["DUE DATE"] = (
-            merged_df["DUE DATE"]
-            .astype("Int64")
-            .astype(str)
-            .replace("<NA>", "")
-        )
+            merged_df["DUE DATE"] = merged_df["DUE DATE"].fillna("").astype("Int64").astype(str).replace("<NA>", "")
+        except Exception as e:
+            st.warning(f"⚠️ Could not compute due dates: {e}")
 
-    except Exception as e:
-        st.warning(f"⚠️ Could not compute due dates automatically: {e}")
-
-
-        # --- Final cleanup and alignment ---
+       
+        # --- Final Cleanup ---
         final_df = pd.DataFrame(columns=TEMPLATE_HEADERS)
         for col in TEMPLATE_HEADERS:
-            if col in merged_df.columns:
-                final_df[col] = merged_df[col]
-            else:
-                final_df[col] = ""
+            final_df[col] = merged_df[col] if col in merged_df.columns else ""
 
-        st.success("✅ Successfully merged TAD + ENDORSEMENT using LAN ↔ ACCTNUM key!")
+        st.success("✅ Successfully merged TAD + ENDORSEMENT → Active List created!")
 
-        # --- Dashboard Summary ---
-        st.markdown("### 📊 Dashboard Summary")
+        # ==========================
+        # 📊 DASHBOARD SUMMARY SECTION
+        # ==========================
+        st.subheader("📊 Summary Dashboard")
 
-        merged_df["PAST DUE"] = pd.to_numeric(merged_df["PAST DUE"], errors="coerce").fillna(0)
-        total_endo = endorsement_df.shape[0]
-        with_past_due = (merged_df["PAST DUE"] > 0).sum()
-        pout = (merged_df["PAST DUE"] == 0).sum()
-        active = with_past_due  # active = accounts with past due > 0
+        total_accounts = len(final_df)
+        new_endo_count = (final_df["CLASSIFICATION"] == "NEW ENDO").sum()
+        reendo_count = (final_df["CLASSIFICATION"] == "REENDO").sum()
+        other_count = total_accounts - (new_endo_count + reendo_count)
 
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("🆕 New ENDO", f"{total_endo:,}")
-        col2.metric("📅 With Past Dues", f"{with_past_due:,}")
-        col3.metric("💤 POUT (0 Past Due)", f"{pout:,}")
-        col4.metric("✅ ACTIVE", f"{active:,}")
 
-        # --- Display and Download Section ---
-        st.subheader("📋 Merged Preview")
-        st.dataframe(final_df.head(15))
+        with col1:
+            st.metric(label="🧾 Total Accounts", value=f"{total_accounts:,}")
 
-    
+        with col2:
+            st.metric(label="🆕 NEW ENDO", value=f"{new_endo_count:,}", delta=f"{(new_endo_count/total_accounts*100):.1f}%" if total_accounts else None)
+
+        with col3:
+            st.metric(label="♻️ REENDO", value=f"{reendo_count:,}", delta=f"{(reendo_count/total_accounts*100):.1f}%" if total_accounts else None)
+
+        with col4:
+            st.metric(label="📦 Others / Unclassified", value=f"{other_count:,}")
+
+        st.markdown("---")
+
+        # --- Preview ---
+        st.dataframe(final_df.head(20))
+
+        # --- Download ---
         output = BytesIO()
         final_df.to_excel(output, index=False, engine="openpyxl")
         st.download_button(
-            label="💾 Download Final Merged Excel",
+            label="💾 Download ACTIVE LIST Excel",
             data=output.getvalue(),
-            file_name="merged_TAD_ENDORSEMENT.xlsx",
+            file_name="Active_List.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
     else:
-        st.warning("⚠️ Please upload and align both files before merging.")
-from utils import process_excel_file, compare_excel_files, merge_excel_files
+        st.warning("⚠️ Please upload and align both TAD + Endorsement files before merging.")

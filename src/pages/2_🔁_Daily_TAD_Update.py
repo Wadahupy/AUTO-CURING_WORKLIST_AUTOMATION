@@ -28,7 +28,7 @@ STANDARD_HEADERS = [
 # Date columns that need formatting
 DATE_COLUMNS = [
     "DATE", "PTP DATE", "ENDO DATE", "DATE REFERRED", "LAST PAYMENT DATE",
-    "LOAN MATURITY", "DUE DATE", "OLDEST DUE DATE", "NEXT DUE DATE", "REPRICING DATE"
+    "LOAN MATURITY", "OLDEST DUE DATE", "NEXT DUE DATE", "REPRICING DATE"
 ]
 
 # === Helper Function to Read Excel/CSV (Handles Encrypted + Unencrypted) ===
