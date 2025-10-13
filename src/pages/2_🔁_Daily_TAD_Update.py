@@ -1,8 +1,19 @@
 import streamlit as st
 import pandas as pd
+import sys
 import io
+from pathlib import Path
 from datetime import datetime
+from io import BytesIO
 from msoffcrypto import OfficeFile
+
+# Add parent directory to Python path
+sys.path.append(str(Path(__file__).parent.parent))
+
+# Configure pandas to handle future warnings
+pd.set_option('future.no_silent_downcasting', True)
+
+from utils import read_excel_file, generate_download_button, show_dataframe_preview
 
 # === Page Config ===
 st.set_page_config(page_title="🔁 Daily TAD Update", layout="wide")
@@ -12,7 +23,7 @@ DEFAULT_PASSWORD = "BPI_SPM2025"
 
 # === Standard Header Format ===
 STANDARD_HEADERS = [
-    "LAST BARCODE", "DATE", "PTP DATE", "AGENT", "CLASSIFICATION",
+    "LAST BARCODE DATE", "LAST BARCODE", "PTP DATE", "AGENT", "CLASSIFICATION",
     "ENDO DATE", "DATE REFERRED", "CTL2", "CTL3", "CTL4", "DEBTOR ID",
     "LAN", "NAME", "PAST DUE", "PAYOFF AMOUNT", "PRINCIPAL",
     "MONTHLY AMORTIZATION", "INTEREST", "LPC", "INSURANCE", "PREPAYMENT",
@@ -85,7 +96,7 @@ def format_dates(df):
     df = df.copy()
     for col in DATE_COLUMNS:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%m/%d/%Y")
+            df[col] = pd.to_datetime(df[col], format="%m/%d/%Y", errors="coerce").dt.strftime("%m/%d/%Y")
             df[col] = df[col].fillna("")  # Replace NaT with empty string
     return df
 
@@ -222,9 +233,31 @@ if masterlist_file:
             "PROD TYPE", "LPC YTD", "RATE", "REPRICING DATE", "DPD", "ADA SHORTAGE"
         ]
 
-        # Convert PAST DUE to numeric
-        today_tad["PAST DUE"] = pd.to_numeric(today_tad.get("PAST DUE", 0), errors="coerce").fillna(0)
-        yesterday_active["PAST DUE"] = pd.to_numeric(yesterday_active.get("PAST DUE", 0), errors="coerce").fillna(0)
+        # Clean numeric columns
+        def clean_numeric(df, columns):
+            df = df.copy()
+            for col in columns:
+                if col in df.columns:
+                    # Convert to string first
+                    df[col] = df[col].astype(str)
+                    
+                    # Clean the strings
+                    df[col] = (df[col]
+                             .str.replace('₱', '', regex=False)
+                             .str.replace('$', '', regex=False)
+                             .str.replace(',', '', regex=False)
+                             .str.replace('-', '', regex=False)
+                             .str.strip())
+                    
+                    # Convert to numeric
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+            return df
+
+        numeric_cols = ["PAST DUE", "PAYOFF AMOUNT", "PRINCIPAL", "INTEREST", "LPC",
+                       "INSURANCE", "CU PAYMENT", "PREM AMT", "LPC YTD", "RATE"]
+
+        today_tad = clean_numeric(today_tad, numeric_cols)
+        yesterday_active = clean_numeric(yesterday_active, numeric_cols)
 
         # Update Active List columns based on TAD file
         updated_active = yesterday_active.copy()
@@ -306,8 +339,8 @@ if masterlist_file:
 
                 # 🧩 Fix OLDEST DUE DATE (must come from masterlist)
                 if "OLDEST DUE DATE_ML" in revive_merged.columns and "OLDEST DUE DATE" in revive_merged.columns:
-                    # Convert TAD OLDEST DUE DATE to datetime
-                    revive_merged["OLDEST DUE DATE"] = pd.to_datetime(revive_merged["OLDEST DUE DATE"], errors="coerce")
+                    # Convert TAD OLDEST DUE DATE to datetime with specific format
+                    revive_merged["OLDEST DUE DATE"] = pd.to_datetime(revive_merged["OLDEST DUE DATE"], format="%m/%d/%Y", errors="coerce")
 
                     # Convert Masterlist Excel serial to datetime
                     def excel_date_to_datetime(val):
@@ -342,7 +375,15 @@ if masterlist_file:
                 for col in STANDARD_HEADERS:
                     ml_col = f"{col}_ML"
                     if ml_col in revive_merged.columns:
-                        revive_merged[col] = revive_merged[col].fillna(revive_merged[ml_col])
+                        # Convert both columns to the same type before filling
+                        col_type = revive_merged[col].dtype
+                        revive_merged[ml_col] = revive_merged[ml_col].astype(col_type)
+                        
+                        # Use loc for assignment to maintain types
+                        mask = revive_merged[col].isna()
+                        revive_merged.loc[mask, col] = revive_merged.loc[mask, ml_col]
+                        
+                        # Drop the masterlist column
                         revive_merged.drop(columns=[ml_col], inplace=True, errors="ignore")
 
                 # 🧹 Format all date columns uniformly

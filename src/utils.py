@@ -1,5 +1,117 @@
 import pandas as pd
 import numpy as np
+import streamlit as st
+from io import BytesIO
+import io
+from msoffcrypto import OfficeFile
+from typing import Optional, Dict, Union
+
+def read_excel_file(uploaded_file: BytesIO, 
+                   password: Optional[str] = None,
+                   sheet_name: Optional[str] = None,
+                   header_row: int = 0) -> Optional[pd.DataFrame]:
+    """
+    Safely read an Excel file with optional password protection.
+    
+    Args:
+        uploaded_file: The uploaded file object
+        password: Optional password for protected files
+        sheet_name: Name or index of the sheet to read
+        header_row: Row number to use as header (0-based)
+        
+    Returns:
+        DataFrame or None if reading fails
+    """
+    try:
+        if uploaded_file is None:
+            return None
+            
+        file_ext = uploaded_file.name.split(".")[-1].lower()
+        
+        if file_ext == "csv":
+            return pd.read_csv(uploaded_file)
+            
+        elif file_ext in ["xls", "xlsx"]:
+            try:
+                # Try reading as encrypted first
+                decrypted = io.BytesIO()
+                office_file = OfficeFile(uploaded_file)
+                office_file.load_key(password=password)
+                office_file.decrypt(decrypted)
+                decrypted.seek(0)
+                
+                data = pd.read_excel(
+                    decrypted,
+                    sheet_name=sheet_name,
+                    header=header_row,
+                    engine="openpyxl"
+                )
+                
+            except Exception as e:
+                # If decrypt fails, try reading directly
+                uploaded_file.seek(0)
+                data = pd.read_excel(
+                    uploaded_file,
+                    sheet_name=sheet_name,
+                    header=header_row,
+                    engine="openpyxl"
+                )
+            
+            # Handle dict result (multiple sheets)
+            if isinstance(data, dict):
+                if sheet_name and sheet_name in data:
+                    return data[sheet_name]
+                else:
+                    return list(data.values())[0]
+            return data
+            
+        else:
+            st.error(f"❌ Unsupported file format: {file_ext}")
+            return None
+            
+    except Exception as e:
+        st.error(f"❌ Error reading file: {str(e)}")
+        return None
+
+def generate_download_button(df: pd.DataFrame,
+                           button_text: str,
+                           file_name: str,
+                           file_type: str = "excel") -> None:
+    """
+    Create a download button for a DataFrame.
+    
+    Args:
+        df: DataFrame to download
+        button_text: Text to display on the button
+        file_name: Name of the downloaded file
+        file_type: 'csv' or 'excel'
+    """
+    try:
+        if file_type == "csv":
+            data = df.to_csv(index=False).encode("utf-8")
+            mime = "text/csv"
+        else:
+            output = BytesIO()
+            df.to_excel(output, index=False, engine="openpyxl")
+            data = output.getvalue()
+            mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            
+        st.download_button(
+            label=button_text,
+            data=data,
+            file_name=file_name,
+            mime=mime,
+            use_container_width=True
+        )
+    except Exception as e:
+        st.error(f"❌ Error generating download: {str(e)}")
+
+def show_dataframe_preview(df: pd.DataFrame,
+                         title: str,
+                         num_rows: int = 20) -> None:
+    """Display a preview of a DataFrame with expandable section."""
+    with st.expander(f"📋 {title}", expanded=True):
+        st.dataframe(df.head(num_rows))
 
 def process_excel_file(df: pd.DataFrame) -> pd.DataFrame:
     """
