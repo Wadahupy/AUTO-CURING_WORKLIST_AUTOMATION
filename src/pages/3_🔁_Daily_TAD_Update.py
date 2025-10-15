@@ -17,6 +17,7 @@ pd.set_option('future.no_silent_downcasting', True)
 
 from utils import read_excel_file, generate_download_button, show_dataframe_preview
 
+
 # === Page Config ===
 st.set_page_config(page_title="🔁 Daily TAD Update", layout="wide")
 st.title("🔁 Daily TAD Update and Comparison")
@@ -35,7 +36,27 @@ DEFAULT_PASSWORD = os.getenv("DEFAULT_PASSWORD")
 if not DEFAULT_PASSWORD:
     st.error("❌ Environment variable DEFAULT_PASSWORD not found or empty. Check your .env file.")
     st.stop()
-    
+
+# === Login Gate ===
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+
+if not st.session_state["logged_in"]:
+    st.markdown("<h2 style='text-align:center;'>🔐 Login Required</h2>", unsafe_allow_html=True)
+    password = st.text_input("Enter Password", type="password")
+
+    if st.button("Login", use_container_width=True):
+        if password == DEFAULT_PASSWORD:
+            st.session_state["logged_in"] = True
+            st.success("✅ Access granted! Loading the app...")
+            st.rerun()
+        else:
+            st.error("❌ Incorrect password. Please try again.")
+    st.stop()  # Stop execution here if not logged in
+
+# === Logout button ===
+st.sidebar.button("🔓 Logout", on_click=lambda: st.session_state.update({"logged_in": False}))
+
 # === Standard Header Format ===
 STANDARD_HEADERS = [
     "LAST BARCODE DATE", "LAST BARCODE", "PTP DATE", "AGENT", "CLASSIFICATION",
