@@ -6,6 +6,8 @@ from pathlib import Path
 from datetime import datetime
 from io import BytesIO
 from msoffcrypto import OfficeFile
+from dotenv import load_dotenv, find_dotenv
+import os
 
 # Add parent directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -19,8 +21,21 @@ from utils import read_excel_file, generate_download_button, show_dataframe_prev
 st.set_page_config(page_title="🔁 Daily TAD Update", layout="wide")
 st.title("🔁 Daily TAD Update and Comparison")
 
-DEFAULT_PASSWORD = "BPI_SPM2025"
+# === Load environment variables ===
+env_path = find_dotenv()
+if not env_path:
+    st.error("❌ .env file not found in project directory.")
+    st.stop()
 
+load_dotenv(env_path)
+
+# === Get password from .env ===
+DEFAULT_PASSWORD = os.getenv("DEFAULT_PASSWORD")
+
+if not DEFAULT_PASSWORD:
+    st.error("❌ Environment variable DEFAULT_PASSWORD not found or empty. Check your .env file.")
+    st.stop()
+    
 # === Standard Header Format ===
 STANDARD_HEADERS = [
     "LAST BARCODE DATE", "LAST BARCODE", "PTP DATE", "AGENT", "CLASSIFICATION",
