@@ -211,7 +211,7 @@ if st.button("🚀 Merge Monthly Files"):
         today = datetime.today().strftime("%m/%d/%Y")
         merged_df["ENDO DATE"] = today
         merged_df["DATE REFERRED"] = today
-        merged_df["CLASSIFICATION"] = "MONTHLY ENDO"
+        merged_df["CLASSIFICATION"] = "NEW ENDO"
 
         # Compute due dates
         try:
