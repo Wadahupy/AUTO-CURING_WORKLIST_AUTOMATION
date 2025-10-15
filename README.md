@@ -64,7 +64,3 @@ The application will open in your default web browser at `http://localhost:8501`
 - Add progress indicators for long-running operations
 - Include data validation before processing
 - Add logging for debugging purposes
-
-## Contributing
-
-Feel free to fork this repository and submit pull requests for any improvements.
