@@ -18,20 +18,11 @@ st.set_page_config(
 st.title("📆 Monthly Endorsement Automation Tool")
 st.markdown("Upload your required files below to begin processing.")
 
-# === Load environment variables ===
-env_path = find_dotenv()
-if not env_path:
-    st.error("❌ .env file not found in project directory.")
+try:
+    DEFAULT_PASSWORD = st.secrets["DEFAULT_PASSWORD"]
+except Exception:
+    st.error("❌ Streamlit secret `DEFAULT_PASSWORD` not found. Please add it in the app settings under 'Edit Secrets'.")
     st.stop()
-
-load_dotenv(env_path)
-
-DEFAULT_PASSWORD = os.getenv("DEFAULT_PASSWORD")
-
-if not DEFAULT_PASSWORD:
-    st.error("❌ Environment variable DEFAULT_PASSWORD not found or empty. Check your .env file.")
-    st.stop()
-
 # === Login Gate ===
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
