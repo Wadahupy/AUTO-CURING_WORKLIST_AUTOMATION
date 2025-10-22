@@ -357,7 +357,7 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
         st.markdown("---")
         st.subheader("💾 Download Files")
         
-        col1, col2, col3 = st.columns(4)
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             st.download_button(
