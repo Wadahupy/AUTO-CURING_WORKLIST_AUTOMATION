@@ -357,7 +357,7 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
         st.markdown("---")
         st.subheader("💾 Download Files")
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns(4)
         
         with col1:
             st.download_button(
@@ -382,6 +382,15 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
                 "📤 Download FOR UPLOAD",
                 to_excel_bytes(for_upload),
                 file_name=f"For_Upload_{datetime.today():%Y%m%d}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+        with col4:
+            reendo_only = final_active[final_active["CLASSIFICATION"] == "REENDO"]
+            st.download_button(
+                "📤 Download REENDO Accounts",
+                to_excel_bytes(reendo_only),
+                file_name=f"REENDO_Accounts_{datetime.today():%Y%m%d}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
