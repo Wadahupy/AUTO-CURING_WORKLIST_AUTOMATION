@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 # Standard headers in required order - only necessary columns
 STANDARD_HEADERS = [
     "LAN",
-    "CH CODE"
+    "CH CODE",
     "NAME",
     "CTL4",
     "PAST DUE",
