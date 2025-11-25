@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 # Standard headers in required order - only necessary columns
 STANDARD_HEADERS = [
     "LAN",
+    "CH CODE"
     "NAME",
     "CTL4",
     "PAST DUE",
@@ -27,7 +28,8 @@ STANDARD_HEADERS = [
 # Key = standard column name
 # Value = list of possible input column names
 ALIGNMENT_MAP = {
-    "LAN": ["LAN", "CH CODE", "ACCOUNT NUMBER", "ACCTNUM"],
+    "LAN": ["LAN", "ACCOUNT NUMBER", "ACCTNUM"],
+    "CH CODE": ["LAN", "ch code"],
     "NAME": ["NAME", "DEBTOR NAME", "BORROWER NAME"],
     "CTL4": ["CTL4"],
     "PAST DUE": ["PAST DUE", "OVERDUE AMOUNT"],
