@@ -310,7 +310,7 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
 
         # === Ensure all template columns exist ===
         active_file = ensure_columns(active_file, TEMPLATE_HEADERS)
-        final_active = active_file.reindex(columns=TEMPLATE_HEADERS)
+        final_active = active_file[TEMPLATE_HEADERS].copy()
 
         # === Step 6: Create Outputs ===
         
@@ -322,25 +322,24 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
         
         # 6.3: Consolidated MASTERLIST
         # The consolidated masterlist combines the original masterlist with ALL accounts from the active list
-        # Prepare active list rows with essential columns for masterlist
-        masterlist_essential_cols = ["LAN", "NAME", "DATE REFERRED", "CLASSIFICATION", "ENDO DATE"]
-        active_for_master = final_active[
-            [col for col in masterlist_essential_cols if col in final_active.columns]
-        ].copy()
+        # Use ALL columns from final_active (complete data including all mapped fields)
+        active_for_master = final_active.copy()
         
-       # Ensure both have same columns
-        all_cols = sorted(set(masterlist_df.columns) | set(active_for_master.columns))
-
-        masterlist_df = masterlist_df.reindex(columns=all_cols, fill_value="")
-        active_for_master = active_for_master.reindex(columns=all_cols, fill_value="")
-
-        # Combine
+        # Ensure masterlist has all columns from active list
+        for col in active_for_master.columns:
+            if col not in masterlist_df.columns:
+                masterlist_df[col] = ""
+        
+        # Combine: original masterlist + all active list accounts
         consolidated_masterlist = pd.concat([masterlist_df, active_for_master], ignore_index=True)
-
-        # Remove duplicates properly
-        consolidated_masterlist = consolidated_masterlist.sort_values(
-            by=["LAN"], kind="stable"
-        ).drop_duplicates(subset="LAN", keep="last")
+        
+        # Remove duplicates, keeping the latest entry (from active list)
+        consolidated_masterlist = consolidated_masterlist.drop_duplicates(subset=["LAN"], keep="last")
+        
+        # Format all date columns in consolidated masterlist to MM/DD/YYYY
+        for col in DATE_COLUMNS:
+            if col in consolidated_masterlist.columns:
+                consolidated_masterlist[col] = format_dates(consolidated_masterlist[col])
 
         # === Display Results ===
         st.success("✅ Processing complete!")
