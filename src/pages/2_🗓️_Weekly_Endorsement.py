@@ -314,10 +314,13 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
 
         # === Step 6: Create Outputs ===
         
-        # 6.1: FOR UPLOAD (NEW ENDO + REENDO)
-        for_upload = final_active.copy()
+        # 6.1: FOR UPLOAD (NEW ENDO only)
+        for_upload = final_active[final_active["CLASSIFICATION"] == "NEW ENDO"].copy()
         
-        # 6.2: Consolidated MASTERLIST
+        # 6.2: FOR UPDATE (REENDO only)
+        for_update = final_active[final_active["CLASSIFICATION"] == "REENDO"].copy()
+        
+        # 6.3: Consolidated MASTERLIST
         # Add NEW ENDO accounts to masterlist
         new_endo_accounts = final_active[final_active["CLASSIFICATION"] == "NEW ENDO"].copy()
         
@@ -347,9 +350,9 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
         
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Total Accounts", f"{total_accounts:,}")
-        col2.metric("NEW ENDO", f"{new_endo_count:,}", 
+        col2.metric("FOR UPLOAD (NEW ENDO)", f"{new_endo_count:,}", 
                    delta=f"{(new_endo_count/total_accounts*100):.1f}%" if total_accounts else "0%")
-        col3.metric("REENDO", f"{reendo_count:,}",
+        col3.metric("FOR UPDATE (REENDO)", f"{reendo_count:,}",
                    delta=f"{(reendo_count/total_accounts*100):.1f}%" if total_accounts else "0%")
         col4.metric("Masterlist Size", f"{len(consolidated_masterlist):,}")
 
@@ -379,18 +382,17 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
         
         with col3:
             st.download_button(
-                "📤 Download FOR UPLOAD",
+                "📤 Download FOR UPLOAD (NEW ENDO)",
                 to_excel_bytes(for_upload),
                 file_name=f"For_Upload_{datetime.today():%Y%m%d}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
         with col4:
-            reendo_only = final_active[final_active["CLASSIFICATION"] == "REENDO"]
             st.download_button(
-                "📤 Download REENDO Accounts",
-                to_excel_bytes(reendo_only),
-                file_name=f"REENDO_Accounts_{datetime.today():%Y%m%d}.xlsx",
+                "✏️ Download FOR UPDATE (REENDO)",
+                to_excel_bytes(for_update),
+                file_name=f"For_Update_{datetime.today():%Y%m%d}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
@@ -401,11 +403,14 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
         with st.expander("👁️ Preview: Active File (first 20 rows)", expanded=True):
             st.dataframe(final_active.head(20))
         
+        with st.expander("👁️ Preview: FOR UPLOAD (NEW ENDO accounts)"):
+            st.dataframe(for_upload.head(20))
+        
+        with st.expander("👁️ Preview: FOR UPDATE (REENDO accounts)"):
+            st.dataframe(for_update.head(20))
+        
         with st.expander("👁️ Preview: Consolidated Masterlist (first 20 rows)"):
             st.dataframe(consolidated_masterlist.head(20))
-        
-        with st.expander("👁️ Preview: For Upload (first 20 rows)"):
-            st.dataframe(for_upload.head(20))
         
         with st.expander("📊 Classification Breakdown"):
             classification_counts = final_active["CLASSIFICATION"].value_counts()
