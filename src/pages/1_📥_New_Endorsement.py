@@ -310,7 +310,7 @@ if "merge_complete" in st.session_state and st.session_state["merge_complete"]:
         st.download_button(
             "📤 Download FOR UPLOAD",
             to_excel_bytes(for_upload),
-            file_name=f"BPI_AUTOCURING_FORUPLOADS_{date_stamp}.xlsx",
+            file_name=f"FOR UPLOAD {date_stamp}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
@@ -319,7 +319,7 @@ if "merge_complete" in st.session_state and st.session_state["merge_complete"]:
         st.download_button(
             "📒 Download MASTERLIST",
             to_excel_bytes(masterlist_export),
-            file_name=f"Masterlist_{date_stamp}.xlsx",
+            file_name=f"MASTERLIST {date_stamp}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
@@ -328,7 +328,7 @@ if "merge_complete" in st.session_state and st.session_state["merge_complete"]:
         st.download_button(
             "📋 Download ACTIVELIST",
             to_excel_bytes(final_active_list),
-            file_name=f"ActiveList_{date_stamp}.xlsx",
+            file_name=f"ACTIVE FILES {date_stamp}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True
         )
