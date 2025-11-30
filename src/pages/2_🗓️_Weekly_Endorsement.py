@@ -310,7 +310,7 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
 
         # === Ensure all template columns exist ===
         active_file = ensure_columns(active_file, TEMPLATE_HEADERS)
-        final_active = active_file[TEMPLATE_HEADERS].copy()
+        final_active = active_file.reindex(columns=TEMPLATE_HEADERS)
 
         # === Step 6: Create Outputs ===
         
@@ -328,16 +328,19 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
             [col for col in masterlist_essential_cols if col in final_active.columns]
         ].copy()
         
-        # Ensure masterlist has same columns
-        for col in active_for_master.columns:
-            if col not in masterlist_df.columns:
-                masterlist_df[col] = ""
-        
-        # Combine: original masterlist + all active list accounts
+       # Ensure both have same columns
+        all_cols = sorted(set(masterlist_df.columns) | set(active_for_master.columns))
+
+        masterlist_df = masterlist_df.reindex(columns=all_cols, fill_value="")
+        active_for_master = active_for_master.reindex(columns=all_cols, fill_value="")
+
+        # Combine
         consolidated_masterlist = pd.concat([masterlist_df, active_for_master], ignore_index=True)
-        
-        # Remove duplicates, keeping the latest entry (from active list)
-        consolidated_masterlist = consolidated_masterlist.drop_duplicates(subset=["LAN"], keep="last")
+
+        # Remove duplicates properly
+        consolidated_masterlist = consolidated_masterlist.sort_values(
+            by=["LAN"], kind="stable"
+        ).drop_duplicates(subset="LAN", keep="last")
 
         # === Display Results ===
         st.success("✅ Processing complete!")
