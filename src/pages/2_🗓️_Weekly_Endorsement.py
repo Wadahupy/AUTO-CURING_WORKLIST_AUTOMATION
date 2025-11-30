@@ -41,10 +41,6 @@ if not st.session_state["logged_in"]:
 # === Logout button ===
 st.sidebar.button("🔓 Logout", on_click=lambda: st.session_state.update({"logged_in": False}))
 
-# === Session Token (prevents reset on file download) ===
-if "session_token" not in st.session_state:
-    st.session_state["session_token"] = datetime.now().isoformat()
-
 
 # === Template Headers ===
 TEMPLATE_HEADERS = [
