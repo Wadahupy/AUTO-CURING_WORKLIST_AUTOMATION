@@ -66,110 +66,206 @@ def render_header_alignment_tool():
     
     st.header("📋 Column Header Alignment Tool")
     st.markdown("""
-    Upload a CSV or Excel file with arbitrary column names. 
-    This tool will automatically map your columns to the standard format.
+    Upload CSV or Excel files for alignment. You can upload:
+    - **FOR UPLOAD file** only
+    - **FOR UPDATE file** only  
+    - **Both files** together
     """)
     
-    # File upload
-    uploaded_file = st.file_uploader(
-        "Upload your data file",
-        type=["csv", "xlsx", "xls"],
-        help="CSV or Excel file with data to align"
-    )
+    # Initialize session state for tracking uploaded files
+    if "uploaded_for_upload" not in st.session_state:
+        st.session_state["uploaded_for_upload"] = None
+    if "uploaded_for_update" not in st.session_state:
+        st.session_state["uploaded_for_update"] = None
     
-    if uploaded_file is None:
-        st.info("👆 Upload a file to begin")
-        return None
-    
-    # Read file
-    try:
-        if uploaded_file.name.lower().endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
-        else:
-            # For Excel files, allow sheet selection
-            excel_file = pd.ExcelFile(uploaded_file)
-            sheet_names = excel_file.sheet_names
-            
-            if len(sheet_names) > 1:
-                selected_sheet = st.selectbox(
-                    "Select sheet",
-                    sheet_names,
-                    help="Choose which sheet to use"
-                )
-            else:
-                selected_sheet = sheet_names[0]
-            
-            df = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
-    
-    except Exception as e:
-        st.error(f"❌ Error reading file: {e}")
-        return None
-    
-    st.success(f"✅ File loaded: {uploaded_file.name}")
-    
-    # Detect file type and show it
-    detected_type = detect_file_type(uploaded_file.name)
-    output_filename = generate_output_filename(uploaded_file.name)
-    
-    type_emoji = "📤" if detected_type == 'FOR_UPLOAD' else "✏️" if detected_type == 'FOR_UPDATE' else "📋"
-    type_label = "FOR UPLOAD" if detected_type == 'FOR_UPLOAD' else "FOR UPDATE" if detected_type == 'FOR_UPDATE' else "UNKNOWN TYPE"
-    
-    st.info(f"{type_emoji} **Detected Type:** {type_label}\n\n**Output Filename:** `{output_filename}`")
-    
-    # Generate alignment report
-    report = get_alignment_report(df)
-    
-    
-    # Align headers
-    try:
-        aligned_df = align_headers(df)
-        st.success("✅ Headers aligned successfully!")
-    except Exception as e:
-        st.error(f"❌ Error aligning headers: {e}")
-        return None
-    
-    # Show aligned data preview
-    with st.expander("📋 Aligned Data Preview", expanded=True):
-        st.dataframe(aligned_df.head(20))
-    
-    # Download options
-    st.subheader("💾 Download Aligned File")
-    
-    # Generate appropriate output filename
-    output_base_name = generate_output_filename(uploaded_file.name)
-    
+    # File upload section
+    st.subheader("📤 Step 1: Upload Files")
     col1, col2 = st.columns(2)
     
     with col1:
-        # Excel download
-        excel_buffer = BytesIO()
-        aligned_df.to_excel(excel_buffer, index=False, engine='openpyxl')
-        excel_buffer.seek(0)
-        
-        st.download_button(
-            label="📥 Download as Excel (.xlsx)",
-            data=excel_buffer.getvalue(),
-            file_name=f"{output_base_name}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
+        st.markdown("**📘 FOR UPLOAD File**")
+        for_upload_file = st.file_uploader(
+            "Upload FOR UPLOAD file",
+            type=["csv", "xlsx", "xls"],
+            key="for_upload_uploader",
+            help="File containing accounts to upload"
         )
+        if for_upload_file:
+            st.session_state["uploaded_for_upload"] = for_upload_file
+            st.success(f"✅ FOR UPLOAD: {for_upload_file.name}")
     
     with col2:
-        # CSV download
-        csv_buffer = aligned_df.to_csv(index=False).encode('utf-8')
-        
-        st.download_button(
-            label="📥 Download as CSV (.csv)",
-            data=csv_buffer,
-            file_name=f"{output_base_name}.csv",
-            mime="text/csv",
-            use_container_width=True
+        st.markdown("**📗 FOR UPDATE File**")
+        for_update_file = st.file_uploader(
+            "Upload FOR UPDATE file",
+            type=["csv", "xlsx", "xls"],
+            key="for_update_uploader",
+            help="File containing accounts to update"
         )
+        if for_update_file:
+            st.session_state["uploaded_for_update"] = for_update_file
+            st.success(f"✅ FOR UPDATE: {for_update_file.name}")
     
-    return aligned_df
+    # Check if any file is uploaded
+    has_for_upload = st.session_state["uploaded_for_upload"] is not None
+    has_for_update = st.session_state["uploaded_for_update"] is not None
+    
+    if not has_for_upload and not has_for_update:
+        st.info("👆 Upload at least one file to begin")
+        return None
+    
+    # Process files
+    st.markdown("---")
+    st.subheader("⚙️ Step 2: Process & Align")
+    
+    processed_files = {}
+    
+    # Process FOR UPLOAD file
+    if has_for_upload:
+        uploaded_file = st.session_state["uploaded_for_upload"]
+        try:
+            if uploaded_file.name.lower().endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            else:
+                excel_file = pd.ExcelFile(uploaded_file)
+                sheet_names = excel_file.sheet_names
+                selected_sheet = sheet_names[0] if len(sheet_names) == 1 else st.selectbox("Select sheet (FOR UPLOAD)", sheet_names)
+                df = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
+            
+            # Align headers
+            aligned_df = align_headers(df)
+            processed_files["FOR_UPLOAD"] = {
+                "df": aligned_df,
+                "filename": "BPI_AUTOCURING_FORUPLOADS_" + datetime.now().strftime('%m%d%Y'),
+                "status": "✅"
+            }
+            st.success(f"✅ FOR UPLOAD aligned: {len(aligned_df)} records")
+        except Exception as e:
+            st.error(f"❌ Error processing FOR UPLOAD: {e}")
+    
+    # Process FOR UPDATE file
+    if has_for_update:
+        uploaded_file = st.session_state["uploaded_for_update"]
+        try:
+            if uploaded_file.name.lower().endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            else:
+                excel_file = pd.ExcelFile(uploaded_file)
+                sheet_names = excel_file.sheet_names
+                selected_sheet = sheet_names[0] if len(sheet_names) == 1 else st.selectbox("Select sheet (FOR UPDATE)", sheet_names)
+                df = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
+            
+            # Align headers
+            aligned_df = align_headers(df)
+            processed_files["FOR_UPDATE"] = {
+                "df": aligned_df,
+                "filename": "BPI_AUTOCURING_FORUPDATES_" + datetime.now().strftime('%m%d%Y'),
+                "status": "✅"
+            }
+            st.success(f"✅ FOR UPDATE aligned: {len(aligned_df)} records")
+        except Exception as e:
+            st.error(f"❌ Error processing FOR UPDATE: {e}")
+    
+    if not processed_files:
+        st.warning("⚠️ No files were successfully processed")
+        return None
+    
+    # Store processed files in session state for download persistence
+    st.session_state["processed_files"] = processed_files
+    st.session_state["processing_complete"] = True
+    
+    return processed_files
 
 
+# Display previews and downloads if processing is complete
 if __name__ == "__main__":
     st.set_page_config(page_title="Header Alignment Tool", layout="wide")
     
-    render_header_alignment_tool()
+    # Initialize session state flags
+    if "processing_complete" not in st.session_state:
+        st.session_state["processing_complete"] = False
+    
+    # Render main tool
+    processed_files = render_header_alignment_tool()
+    
+    # Display previews and downloads if files were processed
+    if st.session_state.get("processing_complete", False) and "processed_files" in st.session_state:
+        processed_files = st.session_state["processed_files"]
+        
+        st.markdown("---")
+        st.subheader("👁️ Step 3: Preview Aligned Files")
+        
+        # Show previews
+        if "FOR_UPLOAD" in processed_files:
+            with st.expander("📘 FOR UPLOAD Preview", expanded=True):
+                st.dataframe(processed_files["FOR_UPLOAD"]["df"].head(20))
+        
+        if "FOR_UPDATE" in processed_files:
+            with st.expander("📗 FOR UPDATE Preview", expanded=True):
+                st.dataframe(processed_files["FOR_UPDATE"]["df"].head(20))
+        
+        # Download section
+        st.markdown("---")
+        st.subheader("💾 Step 4: Download Aligned Files")
+        
+        col1, col2 = st.columns(2)
+        
+        if "FOR_UPLOAD" in processed_files:
+            file_data = processed_files["FOR_UPLOAD"]
+            with col1:
+                st.markdown("**📤 FOR UPLOAD**")
+                
+                # Excel download
+                excel_buffer = BytesIO()
+                file_data["df"].to_excel(excel_buffer, index=False, engine='openpyxl')
+                excel_buffer.seek(0)
+                
+                st.download_button(
+                    label="📥 Download as Excel",
+                    data=excel_buffer.getvalue(),
+                    file_name=f"{file_data['filename']}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="for_upload_xlsx"
+                )
+                
+                # CSV download
+                csv_buffer = file_data["df"].to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Download as CSV",
+                    data=csv_buffer,
+                    file_name=f"{file_data['filename']}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="for_upload_csv"
+                )
+        
+        if "FOR_UPDATE" in processed_files:
+            file_data = processed_files["FOR_UPDATE"]
+            with col2:
+                st.markdown("**📝 FOR UPDATE**")
+                
+                # Excel download
+                excel_buffer = BytesIO()
+                file_data["df"].to_excel(excel_buffer, index=False, engine='openpyxl')
+                excel_buffer.seek(0)
+                
+                st.download_button(
+                    label="📥 Download as Excel",
+                    data=excel_buffer.getvalue(),
+                    file_name=f"{file_data['filename']}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="for_update_xlsx"
+                )
+                
+                # CSV download
+                csv_buffer = file_data["df"].to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Download as CSV",
+                    data=csv_buffer,
+                    file_name=f"{file_data['filename']}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                    key="for_update_csv"
+                )
