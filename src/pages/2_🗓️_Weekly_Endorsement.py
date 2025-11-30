@@ -321,21 +321,22 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
         for_update = final_active[final_active["CLASSIFICATION"] == "REENDO"].copy()
         
         # 6.3: Consolidated MASTERLIST
-        # Add NEW ENDO accounts to masterlist
-        new_endo_accounts = final_active[final_active["CLASSIFICATION"] == "NEW ENDO"].copy()
-        
-        # Prepare new masterlist rows with essential columns
+        # The consolidated masterlist combines the original masterlist with ALL accounts from the active list
+        # Prepare active list rows with essential columns for masterlist
         masterlist_essential_cols = ["LAN", "NAME", "DATE REFERRED", "CLASSIFICATION", "ENDO DATE"]
-        new_master_rows = new_endo_accounts[
-            [col for col in masterlist_essential_cols if col in new_endo_accounts.columns]
+        active_for_master = final_active[
+            [col for col in masterlist_essential_cols if col in final_active.columns]
         ].copy()
         
         # Ensure masterlist has same columns
-        for col in new_master_rows.columns:
+        for col in active_for_master.columns:
             if col not in masterlist_df.columns:
                 masterlist_df[col] = ""
         
-        consolidated_masterlist = pd.concat([masterlist_df, new_master_rows], ignore_index=True)
+        # Combine: original masterlist + all active list accounts
+        consolidated_masterlist = pd.concat([masterlist_df, active_for_master], ignore_index=True)
+        
+        # Remove duplicates, keeping the latest entry (from active list)
         consolidated_masterlist = consolidated_masterlist.drop_duplicates(subset=["LAN"], keep="last")
 
         # === Display Results ===
