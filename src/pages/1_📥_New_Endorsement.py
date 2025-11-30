@@ -244,19 +244,86 @@ if st.button("🚀 Merge Monthly Files"):
         for col in TEMPLATE_HEADERS:
             final_df[col] = merged_df[col] if col in merged_df.columns else ""
 
-        st.success("✅ Successfully merged Monthly TAD + ENDORSEMENT → Active List created!")
+        st.success("✅ Successfully merged Monthly TAD + ENDORSEMENT → Files generated!")
 
-        st.dataframe(final_df.head(20))
-
-        # Download Excel
-        output = BytesIO()
-        final_df.to_excel(output, index=False, engine="openpyxl")
-        st.download_button(
-            label="💾 Download Monthly Active List",
-            data=output.getvalue(),
-            file_name="Monthly_Active_List.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        # === Generate Output Files ===
+        today_str = datetime.today().strftime("%m/%d/%Y")
+        date_stamp = datetime.today().strftime("%m%d%Y")
+        
+        # Final Active List (all accounts)
+        final_active_list = pd.DataFrame(columns=TEMPLATE_HEADERS)
+        for col in TEMPLATE_HEADERS:
+            final_active_list[col] = merged_df[col] if col in merged_df.columns else ""
+        
+        # FOR UPLOAD (NEW ENDO only - all accounts in this monthly batch)
+        for_upload = final_active_list.copy()
+        
+        # MASTERLIST (essential columns for tracking)
+        masterlist_cols = ["LAN", "NAME", "DATE REFERRED", "CLASSIFICATION", "ENDO DATE", "PAYOFF AMOUNT", "PRINCIPAL", "DPD"]
+        masterlist_export = final_active_list[
+            [col for col in masterlist_cols if col in final_active_list.columns]
+        ].copy()
+        
+        # Metrics Dashboard
+        st.subheader(f"📊 Dashboard Summary — {datetime.today():%b %d, %Y}")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total Accounts (FOR UPLOAD)", f"{len(for_upload):,}")
+        col2.metric("Masterlist Size", f"{len(masterlist_export):,}")
+        col3.metric("Active List Size", f"{len(final_active_list):,}")
+        col4.metric("Classification", "NEW ENDO")
+        
+        # === Preview Section ===
+        st.markdown("---")
+        st.subheader("👁️ Preview Files")
+        
+        with st.expander("📘 FOR UPLOAD (All NEW ENDO accounts)", expanded=True):
+            st.dataframe(for_upload.head(20))
+        
+        with st.expander("📒 MASTERLIST (Essential columns)"):
+            st.dataframe(masterlist_export.head(20))
+        
+        with st.expander("📋 ACTIVELIST (Full merged data)"):
+            st.dataframe(final_active_list.head(20))
+        
+        # === Download Section ===
+        st.markdown("---")
+        st.subheader("💾 Download Files")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        # Helper function to convert to Excel
+        def to_excel_bytes(df):
+            output = BytesIO()
+            df.to_excel(output, index=False, engine="openpyxl")
+            output.seek(0)
+            return output.getvalue()
+        
+        with col1:
+            st.download_button(
+                "📤 Download FOR UPLOAD",
+                to_excel_bytes(for_upload),
+                file_name=f"BPI_AUTOCURING_FORUPLOADS_{date_stamp}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+        
+        with col2:
+            st.download_button(
+                "📒 Download MASTERLIST",
+                to_excel_bytes(masterlist_export),
+                file_name=f"Masterlist_{date_stamp}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+        
+        with col3:
+            st.download_button(
+                "📋 Download ACTIVELIST",
+                to_excel_bytes(final_active_list),
+                file_name=f"ActiveList_{date_stamp}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
 
     else:
         st.warning("⚠️ Please upload and align both TAD + Endorsement files before merging.")

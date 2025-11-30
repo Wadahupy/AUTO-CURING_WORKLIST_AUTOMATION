@@ -368,7 +368,7 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
             st.download_button(
                 "📘 Download ACTIVE FILE",
                 to_excel_bytes(final_active),
-                file_name=f"Active_File_{datetime.today():%Y%m%d}.xlsx",
+                file_name=f"ACTIVE FILES {datetime.today():%Y%m%d}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
@@ -377,7 +377,7 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
             st.download_button(
                 "📒 Download CONSOLIDATED MASTERLIST",
                 to_excel_bytes(consolidated_masterlist),
-                file_name=f"Masterlist_{datetime.today():%Y%m%d}.xlsx",
+                file_name=f"MASTERLIST {datetime.today():%Y%m%d}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
@@ -386,7 +386,7 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
             st.download_button(
                 "📤 Download FOR UPLOAD (NEW ENDO)",
                 to_excel_bytes(for_upload),
-                file_name=f"For_Upload_{datetime.today():%Y%m%d}.xlsx",
+                file_name=f"FOR UPLOAD {datetime.today():%Y%m%d}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
@@ -394,7 +394,7 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
             st.download_button(
                 "✏️ Download FOR UPDATE (REENDO)",
                 to_excel_bytes(for_update),
-                file_name=f"For_Update_{datetime.today():%Y%m%d}.xlsx",
+                file_name=f"FOR UPDATE {datetime.today():%Y%m%d}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
