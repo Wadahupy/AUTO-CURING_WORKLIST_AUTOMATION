@@ -333,8 +333,7 @@ if all(key in st.session_state for key in ["tad_df", "endorsement_df", "masterli
         # Combine: original masterlist + all active list accounts
         consolidated_masterlist = pd.concat([masterlist_df, active_for_master], ignore_index=True)
         
-        # Remove duplicates, keeping the latest entry (from active list)
-        consolidated_masterlist = consolidated_masterlist.drop_duplicates(subset=["LAN"], keep="last")
+        # Keep duplicates - do not remove them (allows tracking of multiple entries per LAN)
         
         # Format all date columns in consolidated masterlist to MM/DD/YYYY
         for col in DATE_COLUMNS:
