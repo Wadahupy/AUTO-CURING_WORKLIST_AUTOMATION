@@ -401,7 +401,7 @@ if masterlist_file:
                     if ml_col in revive_merged.columns:
                         # Convert both columns to the same type before filling
                         col_type = revive_merged[col].dtype
-                        revive_merged[ml_col] = pd.to_numeric(revive_merged[ml_col], errors="coerce").astype("Int64")
+                        revive_merged[ml_col] = pd.to_numeric(revive_merged[ml_col], errors="coerce")
                         
                         # Use loc for assignment to maintain types
                         mask = revive_merged[col].isna()
