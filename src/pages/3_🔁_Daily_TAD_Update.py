@@ -365,10 +365,12 @@ if st.button("🚀 Process Daily Updates"):
                     mask = revive_merged["DATE REFERRED"].astype(str).str.strip().isin(invalid_dates) | revive_merged["DATE REFERRED"].isna()
                     revive_merged.loc[mask, "DATE REFERRED"] = revive_merged.loc[mask, "DATE REFERRED_ML"]
                 
-                # Handle OLDEST DUE DATE from Masterlist
-                if "OLDEST DUE DATE_ML" in revive_merged.columns and "OLDEST DUE DATE" in revive_merged.columns:
+                # Handle OLDEST DUE DATE and NEXT DUE DATE from Masterlist
+                if "OLDEST DUE DATE_ML" in revive_merged.columns:
+                    # Convert TAD OLDEST DUE DATE to datetime
                     revive_merged["OLDEST DUE DATE"] = pd.to_datetime(revive_merged["OLDEST DUE DATE"], errors="coerce")
                     
+                    # Convert Masterlist Excel serial to datetime
                     def excel_date_to_datetime(val):
                         try:
                             return pd.Timestamp('1899-12-30') + pd.to_timedelta(float(val), unit='D')
@@ -377,8 +379,12 @@ if st.button("🚀 Process Daily Updates"):
                     
                     revive_merged["OLDEST DUE DATE_ML"] = revive_merged["OLDEST DUE DATE_ML"].apply(excel_date_to_datetime)
                     
-                    # Pick latest date
+                    # Pick latest date between TAD and Masterlist
                     revive_merged["OLDEST DUE DATE"] = revive_merged[["OLDEST DUE DATE", "OLDEST DUE DATE_ML"]].max(axis=1)
+                    
+                    # Use Masterlist if TAD is empty
+                    mask_na = revive_merged["OLDEST DUE DATE"].isna()
+                    revive_merged.loc[mask_na, "OLDEST DUE DATE"] = revive_merged.loc[mask_na, "OLDEST DUE DATE_ML"]
                     
                     # Calculate NEXT DUE DATE (+1 month)
                     revive_merged["NEXT DUE DATE"] = revive_merged["OLDEST DUE DATE"] + pd.DateOffset(months=1)
@@ -392,13 +398,27 @@ if st.button("🚀 Process Daily Updates"):
                     
                     # Drop helper column
                     revive_merged.drop(columns=["OLDEST DUE DATE_ML"], inplace=True)
+                else:
+                    # If no Masterlist OLDEST DUE DATE, use today as reference
+                    revive_merged["OLDEST DUE DATE"] = revive_merged.get("OLDEST DUE DATE", "").fillna("")
+                    if revive_merged["OLDEST DUE DATE"].astype(str).str.strip().eq("").all():
+                        revive_merged["OLDEST DUE DATE"] = datetime.today().strftime("%m/%d/%Y")
+                    else:
+                        revive_merged["OLDEST DUE DATE"] = pd.to_datetime(revive_merged["OLDEST DUE DATE"], errors="coerce").dt.strftime("%m/%d/%Y").fillna(datetime.today().strftime("%m/%d/%Y"))
+                    
+                    # Calculate NEXT DUE DATE
+                    temp_oldest = pd.to_datetime(revive_merged["OLDEST DUE DATE"], format="%m/%d/%Y", errors="coerce")
+                    revive_merged["NEXT DUE DATE"] = (temp_oldest + pd.DateOffset(months=1)).dt.strftime("%m/%d/%Y").fillna("")
                 
                 # Fill other missing columns from Masterlist
                 for col in STANDARD_HEADERS:
                     ml_col = f"{col}_ML"
-                    if ml_col in revive_merged.columns:
+                    if ml_col in revive_merged.columns and col not in ["OLDEST DUE DATE", "NEXT DUE DATE"]:
                         revive_merged[col] = revive_merged[col].combine_first(revive_merged[ml_col])
-                        revive_merged.drop(columns=[ml_col], inplace=True)
+                
+                # Drop all remaining _ML columns
+                ml_cols_to_drop = [col for col in revive_merged.columns if col.endswith("_ML")]
+                revive_merged.drop(columns=ml_cols_to_drop, inplace=True, errors="ignore")
                 
                 # Format all date columns uniformly
                 for col in DATE_COLUMNS:
