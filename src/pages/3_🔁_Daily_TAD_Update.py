@@ -217,7 +217,7 @@ if masterlist_file:
 
 
 # === Processing Logic ===
-    if st.button("🚀 Process Daily Updates"):
+if st.button("🚀 Process Daily Updates"):
         # Reset previous results
         st.session_state["processing_complete"] = False
 
@@ -323,98 +323,97 @@ if masterlist_file:
         # Remove pullout from updated active
         updated_active = updated_active[updated_active["PAST DUE"] > 0].copy()
 
-    # =========================
-    # Identify REVIVE accounts
-    # =========================
-    yesterday_all_lans = set(yesterday_active["LAN"].astype(str).str.strip().values)
-    tad_pastdue_lans = set(tad_with_pastdue["LAN"].astype(str).str.strip().values)
-    revive_lans = tad_pastdue_lans - yesterday_all_lans
+        # =========================
+        # Identify REVIVE accounts
+        # =========================
+        yesterday_all_lans = set(yesterday_active["LAN"].astype(str).str.strip().values)
+        tad_pastdue_lans = set(tad_with_pastdue["LAN"].astype(str).str.strip().values)
+        revive_lans = tad_pastdue_lans - yesterday_all_lans
 
-    revive_accounts_tad = today_tad[today_tad["LAN"].astype(str).str.strip().isin(revive_lans)].copy()
-    revive_count = len(revive_accounts_tad)
+        revive_accounts_tad = today_tad[today_tad["LAN"].astype(str).str.strip().isin(revive_lans)].copy()
+        revive_count = len(revive_accounts_tad)
 
-    if revive_count > 0:
-        # Copy revive accounts
-        revive_accounts = revive_accounts_tad.copy()
-        
-        # Normalize column names
-        revive_accounts.columns = revive_accounts.columns.str.strip().str.upper()
-        updated_active.columns = updated_active.columns.str.strip().str.upper()
-        
-        # Ensure all standard headers exist
-        for col in STANDARD_HEADERS:
-            if col not in revive_accounts.columns:
-                revive_accounts[col] = pd.NA
-        
-        # Add REENDO classification and ENDO DATE
-        revive_accounts["CLASSIFICATION"] = "REENDO"
-        revive_accounts["ENDO DATE"] = datetime.today().strftime("%m/%d/%Y")
-        
-        # Merge Masterlist data if available
-        if not masterlist_df.empty and "LAN" in masterlist_df.columns:
-            ml = masterlist_df.copy()
-            ml.columns = ml.columns.str.strip().str.upper()
-            ml["LAN"] = ml["LAN"].astype(str).str.strip()
+        if revive_count > 0:
+            # Copy revive accounts
+            revive_accounts = revive_accounts_tad.copy()
             
-            # Merge on LAN
-            revive_merged = pd.merge(revive_accounts, ml, on="LAN", how="left", suffixes=("", "_ML"))
+            # Normalize column names
+            revive_accounts.columns = revive_accounts.columns.str.strip().str.upper()
+            updated_active.columns = updated_active.columns.str.strip().str.upper()
             
-            # Replace missing DATE REFERRED from Masterlist
-            invalid_dates = ["0", "0/00/0000", "00/00/00", "NaT", "nan", "None", "", "1970-01-01", "01/01/1970", "1/1/1970"]
-            if "DATE REFERRED_ML" in revive_merged.columns:
-                mask = revive_merged["DATE REFERRED"].astype(str).str.strip().isin(invalid_dates) | revive_merged["DATE REFERRED"].isna()
-                revive_merged.loc[mask, "DATE REFERRED"] = revive_merged.loc[mask, "DATE REFERRED_ML"]
-            
-            # Handle OLDEST DUE DATE from Masterlist
-            if "OLDEST DUE DATE_ML" in revive_merged.columns and "OLDEST DUE DATE" in revive_merged.columns:
-                revive_merged["OLDEST DUE DATE"] = pd.to_datetime(revive_merged["OLDEST DUE DATE"], errors="coerce")
-                
-                def excel_date_to_datetime(val):
-                    try:
-                        return pd.Timestamp('1899-12-30') + pd.to_timedelta(float(val), unit='D')
-                    except:
-                        return pd.NaT
-                
-                revive_merged["OLDEST DUE DATE_ML"] = revive_merged["OLDEST DUE DATE_ML"].apply(excel_date_to_datetime)
-                
-                # Pick latest date
-                revive_merged["OLDEST DUE DATE"] = revive_merged[["OLDEST DUE DATE", "OLDEST DUE DATE_ML"]].max(axis=1)
-                
-                # Calculate NEXT DUE DATE (+1 month)
-                revive_merged["NEXT DUE DATE"] = revive_merged["OLDEST DUE DATE"] + pd.DateOffset(months=1)
-                
-                # DUE DATE as day of OLDEST DUE DATE
-                revive_merged["DUE DATE"] = revive_merged["OLDEST DUE DATE"].dt.day
-                
-                # Format dates to mm/dd/yyyy strings
-                revive_merged["OLDEST DUE DATE"] = revive_merged["OLDEST DUE DATE"].dt.strftime("%m/%d/%Y").fillna("")
-                revive_merged["NEXT DUE DATE"] = revive_merged["NEXT DUE DATE"].dt.strftime("%m/%d/%Y").fillna("")
-                
-                # Drop helper column
-                revive_merged.drop(columns=["OLDEST DUE DATE_ML"], inplace=True)
-            
-            # Fill other missing columns from Masterlist
+            # Ensure all standard headers exist
             for col in STANDARD_HEADERS:
-                ml_col = f"{col}_ML"
-                if ml_col in revive_merged.columns:
-                    revive_merged[col] = revive_merged[col].combine_first(revive_merged[ml_col])
-                    revive_merged.drop(columns=[ml_col], inplace=True)
+                if col not in revive_accounts.columns:
+                    revive_accounts[col] = pd.NA
             
-            # Format all date columns uniformly
-            for col in DATE_COLUMNS:
-                if col in revive_merged.columns:
-                    revive_merged[col] = pd.to_datetime(revive_merged[col], errors="coerce").dt.strftime("%m/%d/%Y").fillna("")
+            # Add REENDO classification and ENDO DATE
+            revive_accounts["CLASSIFICATION"] = "REENDO"
+            revive_accounts["ENDO DATE"] = datetime.today().strftime("%m/%d/%Y")
             
-            revive_accounts = revive_merged
-        
-        # Ensure revive_accounts has all columns of updated_active before concat
-        for col in updated_active.columns:
-            if col not in revive_accounts.columns:
-                revive_accounts[col] = pd.NA
-        
-        # Concat safely
-        updated_active = pd.concat([updated_active, revive_accounts[updated_active.columns]], ignore_index=True)
-
+            # Merge Masterlist data if available
+            if not masterlist_df.empty and "LAN" in masterlist_df.columns:
+                ml = masterlist_df.copy()
+                ml.columns = ml.columns.str.strip().str.upper()
+                ml["LAN"] = ml["LAN"].astype(str).str.strip()
+                
+                # Merge on LAN
+                revive_merged = pd.merge(revive_accounts, ml, on="LAN", how="left", suffixes=("", "_ML"))
+                
+                # Replace missing DATE REFERRED from Masterlist
+                invalid_dates = ["0", "0/00/0000", "00/00/00", "NaT", "nan", "None", "", "1970-01-01", "01/01/1970", "1/1/1970"]
+                if "DATE REFERRED_ML" in revive_merged.columns:
+                    mask = revive_merged["DATE REFERRED"].astype(str).str.strip().isin(invalid_dates) | revive_merged["DATE REFERRED"].isna()
+                    revive_merged.loc[mask, "DATE REFERRED"] = revive_merged.loc[mask, "DATE REFERRED_ML"]
+                
+                # Handle OLDEST DUE DATE from Masterlist
+                if "OLDEST DUE DATE_ML" in revive_merged.columns and "OLDEST DUE DATE" in revive_merged.columns:
+                    revive_merged["OLDEST DUE DATE"] = pd.to_datetime(revive_merged["OLDEST DUE DATE"], errors="coerce")
+                    
+                    def excel_date_to_datetime(val):
+                        try:
+                            return pd.Timestamp('1899-12-30') + pd.to_timedelta(float(val), unit='D')
+                        except:
+                            return pd.NaT
+                    
+                    revive_merged["OLDEST DUE DATE_ML"] = revive_merged["OLDEST DUE DATE_ML"].apply(excel_date_to_datetime)
+                    
+                    # Pick latest date
+                    revive_merged["OLDEST DUE DATE"] = revive_merged[["OLDEST DUE DATE", "OLDEST DUE DATE_ML"]].max(axis=1)
+                    
+                    # Calculate NEXT DUE DATE (+1 month)
+                    revive_merged["NEXT DUE DATE"] = revive_merged["OLDEST DUE DATE"] + pd.DateOffset(months=1)
+                    
+                    # DUE DATE as day of OLDEST DUE DATE
+                    revive_merged["DUE DATE"] = revive_merged["OLDEST DUE DATE"].dt.day
+                    
+                    # Format dates to mm/dd/yyyy strings
+                    revive_merged["OLDEST DUE DATE"] = revive_merged["OLDEST DUE DATE"].dt.strftime("%m/%d/%Y").fillna("")
+                    revive_merged["NEXT DUE DATE"] = revive_merged["NEXT DUE DATE"].dt.strftime("%m/%d/%Y").fillna("")
+                    
+                    # Drop helper column
+                    revive_merged.drop(columns=["OLDEST DUE DATE_ML"], inplace=True)
+                
+                # Fill other missing columns from Masterlist
+                for col in STANDARD_HEADERS:
+                    ml_col = f"{col}_ML"
+                    if ml_col in revive_merged.columns:
+                        revive_merged[col] = revive_merged[col].combine_first(revive_merged[ml_col])
+                        revive_merged.drop(columns=[ml_col], inplace=True)
+                
+                # Format all date columns uniformly
+                for col in DATE_COLUMNS:
+                    if col in revive_merged.columns:
+                        revive_merged[col] = pd.to_datetime(revive_merged[col], errors="coerce").dt.strftime("%m/%d/%Y").fillna("")
+                
+                revive_accounts = revive_merged
+            
+            # Ensure revive_accounts has all columns of updated_active before concat
+            for col in updated_active.columns:
+                if col not in revive_accounts.columns:
+                    revive_accounts[col] = pd.NA
+            
+            # Concat safely
+            updated_active = pd.concat([updated_active, revive_accounts[updated_active.columns]], ignore_index=True)
 
         # Format dates in all dataframes
         updated_active = format_dates(updated_active)
