@@ -15,6 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+
 st.title("📆 Monthly Endorsement Automation Tool")
 st.markdown("Upload your required files below to begin processing.")
 

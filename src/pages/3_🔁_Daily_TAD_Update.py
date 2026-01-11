@@ -155,14 +155,11 @@ def validate_filename(filename: str, expected_type: str) -> bool:
     filename_upper = filename.upper()
 
     if expected_type == "active":
-        # ACTIVE WORKLIST mmddyy
-        return bool(re.match(r"^ACTIVE FILES \d{6}", filename_upper))
+        return "ACTIVE FILES" in filename_upper
     elif expected_type == "tad":
-        # TAD_SPM M1_mm.dd.yyyy
-        return bool(re.match(r"^TAD_SPM M1_\d{2}\.\d{2}\.\d{4}", filename_upper))
+        return "TAD_SPM" in filename_upper and "M1" in filename_upper
     elif expected_type == "master":
-        # MASTERLIST mmddyyyy
-        return bool(re.match(r"^MASTERLIST \d{8}", filename_upper))
+        return "MASTERLIST" in filename_upper
     return False
 
 
