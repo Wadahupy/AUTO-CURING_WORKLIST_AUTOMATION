@@ -425,6 +425,11 @@ if masterlist_file:
                 if col not in updated_active.columns:
                     updated_active[col] = pd.NA
 
+            # Ensure revive_accounts has all columns from updated_active
+            for col in updated_active.columns:
+                if col not in revive_accounts.columns:
+                    revive_accounts[col] = pd.NA
+
             updated_active = pd.concat(
                 [updated_active, revive_accounts[updated_active.columns].copy()],
                 ignore_index=True
