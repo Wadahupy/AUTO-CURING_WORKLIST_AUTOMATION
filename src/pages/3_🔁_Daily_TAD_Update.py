@@ -155,11 +155,14 @@ def validate_filename(filename: str, expected_type: str) -> bool:
     filename_upper = filename.upper()
 
     if expected_type == "active":
-        return "ACTIVE FILES" in filename_upper
+        # ACTIVE WORKLIST mmddyy
+        return bool(re.match(r"^ACTIVE FILES \d{6}", filename_upper))
     elif expected_type == "tad":
-        return "TAD_SPM" in filename_upper and "M1" in filename_upper
+        # TAD_SPM M1_mm.dd.yyyy
+        return bool(re.match(r"^TAD_SPM M1_\d{2}\.\d{2}\.\d{4}", filename_upper))
     elif expected_type == "master":
-        return "MASTERLIST" in filename_upper
+        # MASTERLIST mmddyyyy
+        return bool(re.match(r"^MASTERLIST \d{8}", filename_upper))
     return False
 
 
@@ -401,7 +404,7 @@ if masterlist_file:
                     if ml_col in revive_merged.columns:
                         # Convert both columns to the same type before filling
                         col_type = revive_merged[col].dtype
-                        revive_merged[ml_col] = pd.to_numeric(revive_merged[ml_col], errors="coerce")
+                        revive_merged[ml_col] = revive_merged[ml_col].astype(col_type)
                         
                         # Use loc for assignment to maintain types
                         mask = revive_merged[col].isna()
@@ -424,11 +427,6 @@ if masterlist_file:
             for col in STANDARD_HEADERS:
                 if col not in updated_active.columns:
                     updated_active[col] = pd.NA
-
-            # Ensure revive_accounts has all columns from updated_active
-            for col in updated_active.columns:
-                if col not in revive_accounts.columns:
-                    revive_accounts[col] = pd.NA
 
             updated_active = pd.concat(
                 [updated_active, revive_accounts[updated_active.columns].copy()],
