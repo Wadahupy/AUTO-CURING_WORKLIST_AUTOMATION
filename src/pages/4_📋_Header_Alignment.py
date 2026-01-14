@@ -19,6 +19,25 @@ from utils.header_alignment import (
 )
 
 
+def format_date_referred(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Format DATE REFFERED column to MM/MMMM/YYYY format if it exists
+    """
+    col_name = "DATE REFFERED"
+
+    if col_name in df.columns:
+        # Convert to datetime, handling various formats
+        df[col_name] = pd.to_datetime(
+            df[col_name],
+            errors="coerce",
+            infer_datetime_format=True
+        )
+        # Format as MM/MMMM/YYYY (e.g., 01/January/2026), keeping NaT values as empty strings
+        df[col_name] = df[col_name].dt.strftime("%m/%B/%Y").fillna("")
+
+    return df
+
+
 def detect_file_type(filename: str) -> str:
     """
     Detect if the file is FOR UPLOAD or FOR UPDATE based on filename.
@@ -134,6 +153,7 @@ def render_header_alignment_tool():
             
             # Align headers
             aligned_df = align_headers(df)
+            aligned_df = format_date_referred(aligned_df)
             processed_files["FOR_UPLOAD"] = {
                 "df": aligned_df,
                 "filename": "BPI_AUTOCURING_FORUPLOADS_" + datetime.now().strftime('%m%d%Y'),
@@ -157,6 +177,7 @@ def render_header_alignment_tool():
             
             # Align headers
             aligned_df = align_headers(df)
+            aligned_df = format_date_referred(aligned_df)
             processed_files["FOR_UPDATE"] = {
                 "df": aligned_df,
                 "filename": "BPI_AUTOCURING_FORUPDATES_" + datetime.now().strftime('%m%d%Y'),
