@@ -21,19 +21,24 @@ from utils.header_alignment import (
 
 def format_date_referred(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Format DATE REFFERED column to MM/MMMM/YYYY format if it exists
+    Format DATE REFFERED column as TEXT in MM/DD/YYYY
     """
     col_name = "DATE REFFERED"
 
     if col_name in df.columns:
-        # Convert to datetime, handling various formats
         df[col_name] = pd.to_datetime(
             df[col_name],
             errors="coerce",
             infer_datetime_format=True
         )
-        # Format as MM/MMMM/YYYY (e.g., 01/January/2026), keeping NaT values as empty strings
-        df[col_name] = df[col_name].dt.strftime("%m/%B/%Y").fillna("")
+
+        # Convert to string format MM/DD/YYYY
+        df[col_name] = df[col_name].dt.strftime("%m/%d/%Y")
+
+        # Replace NaT with empty string
+        df[col_name] = df[col_name].fillna("")
+
+        df[col_name] = "'" + df[col_name]
 
     return df
 
